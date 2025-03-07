@@ -47,7 +47,7 @@ ensemble <- function(forecasts, series, TY_ensemble, k, min_ens_yrs=5, slide, nu
       # Check if stretched is less than 3
       if (min_ens_yrs < 3) {
         stop("Error: 'min_ens_yrs' should not be less than 3.")}
-      years <- seq(to = i, length.out = min_ens_yrs)
+      years <- seq(to = i, length.out = slide)
     }
 max_year<-i
     tdat <- forecasts %>%
@@ -62,7 +62,7 @@ max_year<-i
       dplyr::ungroup() |>
       dplyr::mutate(error = abundance - predicted_abundance,
                     year_dif=max_year-year+1,
-                    exp_smooth_weight=if(alpha!=0){(1-alpha)^year_dif}else{1}) %>%
+                    exp_smooth_weight=if(alpha!=0){alpha*(1-alpha)^year_dif}else{1}) %>%
       dplyr::filter(!is.na(error)) %>%
       dplyr::group_by(model) %>%
       dplyr::summarize(RMSE = sqrt(weighted.mean(error^2,exp_smooth_weight)),

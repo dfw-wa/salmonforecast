@@ -37,7 +37,7 @@ rolling_perf <- function(one_aheads, series, roll_years, mod_include, TY_ensembl
     group_by(model) %>%
     mutate(
       # MAPE = dplyr::lag(100 * zoo::rollmean(APE, k = roll_years, fill = NA, align = "right")),
-      MAPE = dplyr::lag(100 * zoo::rollapply(data=APE, width = roll_years,\(x) weighted.mean(x,if(alpha==0)rep(1,roll_years)else ((1-alpha)^(roll_years:1))) , fill = NA, align = "right"))
+      MAPE = dplyr::lag(100 * zoo::rollapply(data=APE, width = roll_years,\(x) weighted.mean(x,if(alpha==0)rep(1,roll_years)else (alpha*(1-alpha)^(roll_years:1))) , fill = NA, align = "right"))
 
 
     ) %>%
