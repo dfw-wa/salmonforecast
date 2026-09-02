@@ -88,3 +88,32 @@ test_that("Test all_subsets function", {
   expect_equal(length(results), 2)
 
 })
+
+test_that("all_subsets includes the null (no-covariate) model in `vars` when min = 0, regardless of `fit`", {
+  set.seed(42)
+  d <- data.frame(
+    year = 2000:2015, species = "x", period = 1,
+    abundance = runif(16, 50, 150),
+    cov1 = rnorm(16), cov2 = rnorm(16)
+  )
+
+  # fit = FALSE is the path used by do_forecast(); the null model must still show up in
+  # `vars` (the first list element) since that's what's passed to one_step_ahead().
+  res_no_fit <- all_subsets(series = d, covariates = c("cov1", "cov2"), min = 0, max = 1,
+                            type = "preseason", fit = FALSE)
+  vars_no_fit <- res_no_fit[[1]]
+  expect_equal(length(vars_no_fit), 3) # cov1, cov2, and the null model
+  expect_true(any(sapply(vars_no_fit, length) == 0))
+  expect_null(res_no_fit[[2]])
+
+  # fit = TRUE should fit the null model too, and it should appear in the AICc table
+  # with the "abundance ~ 1" formula.
+  res_fit <- all_subsets(series = d, covariates = c("cov1", "cov2"), min = 0, max = 1,
+                         type = "preseason", fit = TRUE)
+  vars_fit <- res_fit[[1]]
+  table_fit <- res_fit[[2]]
+  expect_equal(length(vars_fit), 3)
+  expect_true(any(sapply(vars_fit, length) == 0))
+  expect_true("abundance ~ 1" %in% table_fit$formula)
+  expect_equal(nrow(table_fit), 3)
+})

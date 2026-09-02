@@ -55,15 +55,27 @@ all_subsets <- function(series, covariates, min, max, type, fit = TRUE) {
     }
   }
 
-  total <- ifelse(min == 0, length(vars) + 1, length(vars))
+  if (min == 0) {
+    # Add the null (intercept-only, no covariates) model to `vars` itself -- not just to
+    # the AICc ranking table -- so that it actually gets fit downstream (e.g. in
+    # one_step_ahead()), regardless of whether `fit` is TRUE or FALSE here.
+    vars[[length(vars) + 1]] <- character(0)
+  }
+
+  total <- length(vars)
   print(paste0("There are ", total, " models to fit! Fitting model number:"))
 
   if (fit) {
     for (i in 1:length(vars)) {
       print(paste0(i, " out of ", total))
-      xreg <- dplyr::ungroup(series) %>%
-        dplyr::select(dplyr::all_of(vars[[i]])) %>%
-        as.matrix()
+
+      if (length(vars[[i]]) == 0) {
+        xreg <- NULL
+      } else {
+        xreg <- dplyr::ungroup(series) %>%
+          dplyr::select(dplyr::all_of(vars[[i]])) %>%
+          as.matrix()
+      }
 
       m1 <- dplyr::ungroup(series) %>%
         dplyr::select(abundance) %>%
@@ -71,19 +83,7 @@ all_subsets <- function(series, covariates, min, max, type, fit = TRUE) {
         stats::ts(frequency = freq) %>%
         forecast::auto.arima(lambda = 0, seasonal = seasonal, xreg = xreg)
       AICc[i] <- m1$aicc
-      formula[i] <- paste0("abundance ~ ", paste(vars[[i]], collapse = " + "))
-      model_num[i] <- i
-    }
-    if (min == 0) {
-      i <- total
-      print(paste0(i, " out of ", total))
-      m1 <- dplyr::ungroup(series) %>%
-        dplyr::select(abundance) %>%
-        unlist() %>%
-        stats::ts(frequency = freq) %>%
-        forecast::auto.arima(lambda = 0, seasonal = seasonal, xreg = NULL)
-      AICc[i] <- m1$aicc
-      formula[i] <- "abundance ~ 1"
+      formula[i] <- if (length(vars[[i]]) == 0) "abundance ~ 1" else paste0("abundance ~ ", paste(vars[[i]], collapse = " + "))
       model_num[i] <- i
     }
     table <- dplyr::as_tibble(data.frame(model_num, AICc, formula)) %>%

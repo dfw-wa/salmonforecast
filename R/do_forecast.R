@@ -122,7 +122,7 @@ do_forecast<-function(
 
   ## not sure if we need this? if not, get rid of it, if so, let's wrap it into one of the existing function (e.g., one_step_ahead)
   model_list<-lapply(best_covariates[[1]],
-                     function(x) paste(x,collapse = " + "))%>%
+                     function(x) if(length(x)==0) "1" else paste(x,collapse = " + "))%>%
     unlist()%>%
     dplyr::as_tibble()%>%
     tibble::rownames_to_column()%>%
