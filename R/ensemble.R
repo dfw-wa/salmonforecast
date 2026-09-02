@@ -36,16 +36,20 @@ ensemble <- function(forecasts, series, TY_ensemble, k, min_ens_yrs=5, slide, nu
 
 
 
+
     if (stretch) {
       # Determine the min_ens_yrs based on the current year (i) and TY_ensemble
-      # ens_yrs  <- i - (yrrange[2] - TY_ensemble)+ min_ens_yrs
+      ens_yrs  <- i - (yrrange[2] - TY_ensemble)+ min_ens_yrs
+
 
       # Generate the sequence of years
-      years <- yrrange[1]:i #seq(to = i, length.out = ens_yrs)
+      years <- seq(to = i, length.out = ens_yrs)
     } else {
+      # Check if stretched is less than 3
+      if (min_ens_yrs < 3) {
+        stop("Error: 'min_ens_yrs' should not be less than 3.")}
       years <- seq(to = i, length.out = slide)
     }
-
 
 max_year<-i
     tdat <- forecasts %>%
@@ -60,7 +64,7 @@ max_year<-i
       dplyr::ungroup() |>
       dplyr::mutate(error = abundance - predicted_abundance,
                     year_dif=max_year-year+1,
-                    exp_smooth_weight=if(alpha!=0){(1-alpha)^year_dif}else{1}) %>%
+                    exp_smooth_weight=if(alpha!=0){alpha*(1-alpha)^year_dif}else{1}) %>%
       dplyr::filter(!is.na(error)) %>%
       dplyr::arrange(year) |>
       dplyr::group_by(model) %>%
