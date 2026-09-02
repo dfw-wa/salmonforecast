@@ -15,7 +15,12 @@
 #'   lagged-covariate feature.
 #' @param group_vars Character vector of grouping columns to split on. Defaults to whichever
 #'   of `c("population", "age")` are present in `dat`. If neither is present, `dat` is run
-#'   as a single group (equivalent to calling `do_forecast()` directly).
+#'   as a single group (equivalent to calling `do_forecast()` directly). If `dat` has a
+#'   `population` and/or `age` column with more than one distinct value that is *not*
+#'   included in `group_vars`, it is added automatically (with a warning) -- rows from
+#'   distinct populations/ages are never silently combined into a single modeled series.
+#'   Use `aggregate_by` to control which of these dimensions get summed together afterward
+#'   for the retrospective performance evaluation.
 #' @param forecast_ages Optional vector of age values to actually forecast (others are
 #'   dropped entirely before modeling). Defaults to all ages present in `dat`. Use this to,
 #'   e.g., forecast a youngest age class purely so it is available as a lagged covariate,
@@ -49,7 +54,11 @@
 #' @param total_model Which per-group ensemble model to use when building the summed total
 #'   series; passed through to `aggregate_group_performance()`. Defaults to `"best"`
 #'   (auto-select the top-performing ensemble per group); alternatively supply a fixed
-#'   ensemble name (e.g., `"MAPE_weighted"`) to use the same ensemble type for every group.
+#'   ensemble name (e.g., `"MAPE_weighted"`), a vector of several such names, or `"all"` to
+#'   compute the aggregated total/performance for `"best"` plus every ensemble-weighting
+#'   method common to all groups, so you can compare summed-total retrospective performance
+#'   across weighting schemes (see `aggregate_group_performance()` for the resulting output
+#'   shape when more than one `total_model` is used).
 #' @param parallel_groups Logical; whether to run the per-group `do_forecast()` calls in
 #'   parallel (across groups) rather than sequentially. If `TRUE`, consider setting the
 #'   `n_cores` argument passed through `...` to `1` to avoid nested parallelism.
@@ -69,7 +78,7 @@
 #'   - `aggregated_performance`: the output of `aggregate_group_performance()` (`NULL` if
 #'     `aggregate_by` is empty), giving the summed-across-group retrospective performance.
 #'
-#' @importFrom dplyr ungroup select all_of distinct arrange across everything filter bind_cols bind_rows mutate
+#' @importFrom dplyr ungroup select all_of distinct arrange across everything filter bind_cols bind_rows mutate n_distinct
 #' @export
 do_forecast_multi <- function(dat,
                               group_vars = intersect(c("population", "age"), names(dat)),
@@ -100,22 +109,35 @@ do_forecast_multi <- function(dat,
     ))
   }
 
+  # Safety net: never let splitting silently omit a real identifying dimension. If `dat`
+  # contains a `population` and/or `age` column with more than one distinct value, but the
+  # caller's `group_vars` doesn't include it, rows from multiple independent time series
+  # would get silently combined into a single series per (remaining) group -- corrupting
+  # model fitting (duplicate years, mismatched observations) instead of raising a clear
+  # error. Auto-include it (with a warning) so every group modeled is always a single,
+  # genuine time series; use `aggregate_by` (which defaults to `group_vars`, so this
+  # addition flows through automatically) to control which dimension(s) get summed for
+  # retrospective performance -- e.g. `group_vars = "age"` plus multiple populations in
+  # `dat` will still model each (population, age) combination separately, and then sum
+  # across populations per age for the retrospective total.
+  for (v in c("population", "age")) {
+    if (v %in% names(dat) && !(v %in% group_vars) && dplyr::n_distinct(dat[[v]]) > 1) {
+      warning("`dat` contains multiple distinct '", v, "' values but '", v, "' was not in ",
+              "`group_vars`; adding it automatically so each population/age combination is ",
+              "modeled as its own series (use `aggregate_by` to control which dimension(s) ",
+              "are summed for retrospective performance).", call. = FALSE)
+      group_vars <- c(group_vars, v)
+    }
+  }
+
   has_age <- "age" %in% group_vars
   has_population <- "population" %in% group_vars
 
-  # ---- 1. Restrict to the age classes we actually want to forecast ----
-  if (has_age) {
-    all_ages <- sort(unique(dat$age))
-    if (is.null(forecast_ages)) forecast_ages <- all_ages
-    if (is.null(total_ages)) total_ages <- forecast_ages
-    if (!all(total_ages %in% forecast_ages)) {
-      stop("`total_ages` must be a subset of `forecast_ages` (an age can't be included in ",
-           "the total unless it is also forecast).")
-    }
-    dat <- dat %>% dplyr::filter(age %in% forecast_ages)
-  }
-
-  # ---- 2. Precompute lagged younger-age covariate (pure preprocessing) ----
+  # ---- 1. Precompute lagged younger-age covariate (pure preprocessing) ----
+  # IMPORTANT: this must happen *before* restricting `dat` to `forecast_ages` below, so
+  # that a younger age class kept only as a covariate source (e.g. age 2 used to forecast
+  # age 3, but not itself forecast) is still available to compute the lag from -- even
+  # though it will be dropped from the set of ages actually modeled in step 2.
   lag_added <- FALSE
   temp_population_col <- FALSE
   if (is.null(lag_age_covariate_name)) {
@@ -143,6 +165,19 @@ do_forecast_multi <- function(dat,
     if (temp_population_col) {
       dat$.tmp_population <- NULL
     }
+  }
+
+  # ---- 2. Restrict to the age classes we actually want to forecast ----
+  # (done *after* the lag covariate is computed -- see note above)
+  if (has_age) {
+    all_ages <- sort(unique(dat$age))
+    if (is.null(forecast_ages)) forecast_ages <- all_ages
+    if (is.null(total_ages)) total_ages <- forecast_ages
+    if (!all(total_ages %in% forecast_ages)) {
+      stop("`total_ages` must be a subset of `forecast_ages` (an age can't be included in ",
+           "the total unless it is also forecast).")
+    }
+    dat <- dat %>% dplyr::filter(age %in% forecast_ages)
   }
 
   # ---- 3. Enumerate groups ----

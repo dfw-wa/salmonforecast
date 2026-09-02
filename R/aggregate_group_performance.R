@@ -21,20 +21,35 @@
 #'   this vector are dropped before summation (only relevant when `"age" %in% group_vars`).
 #'   Use this to exclude, e.g., the youngest age class from the summed total while still
 #'   forecasting it (so it can be used as a lagged covariate for older ages).
-#' @param total_model Which per-group ensemble model's forecast series to sum. Either
-#'   `"best"` (default) to auto-select, for each group, the ensemble-weighted model with the
-#'   lowest retrospective MAPE, or a specific ensemble model name (e.g., `"MAPE_weighted"`)
-#'   to use the same ensemble type across all groups (recommended if you want the summed
-#'   total to be based on a consistent method across groups).
+#' @param total_model Which per-group ensemble model's forecast series to sum. One of:
+#'   - `"best"` (default) to auto-select, for each group, the ensemble-weighted model with
+#'     the lowest retrospective MAPE.
+#'   - A specific ensemble model name (e.g., `"MAPE_weighted"`) to use the same ensemble
+#'     type across all groups (recommended if you want the summed total to be based on a
+#'     consistent method across groups).
+#'   - A character vector of several of the above (e.g., `c("best", "MAPE_weighted",
+#'     "RMSE_weighted")`) to compute the aggregated total/performance for each one.
+#'   - `"all"` to compute the aggregated total for `"best"` plus every ensemble-weighted
+#'     model name common to all groups (i.e., every weighting method available), so you can
+#'     compare the summed-total retrospective performance across weighting schemes.
 #'
-#' @return A list with elements:
+#' @return If a single `total_model` is requested (the default, `"best"`), a list with
+#'   elements:
 #'   - `series`: the summed year-by-year predicted/observed abundance, retaining any
 #'     grouping columns not summed over.
 #'   - `performance`: performance metrics (from `calculate_performance_metrics()`) computed
 #'     on `series`, one row per remaining group combination (or a single row if fully summed).
 #'   - `aggregated_over`, `total_ages`, `total_model`: echoed inputs, for reference.
 #'
-#' @importFrom dplyr filter select distinct bind_cols bind_rows across all_of group_by summarise ungroup n group_modify arrange slice pull
+#'   If multiple `total_model` values are requested (a vector, or `"all"`), a list with:
+#'   - `by_model`: a named list (one element per requested `total_model`), each with the
+#'     same `series`/`performance` structure described above.
+#'   - `combined_series`, `combined_performance`: the same, row-bound across all requested
+#'     models with an added `total_model` column, for easy side-by-side comparison.
+#'   - `aggregated_over`, `total_ages`, `total_model`: echoed inputs (with `total_model`
+#'     expanded to the actual set of model names used).
+#'
+#' @importFrom dplyr filter select distinct bind_cols bind_rows across all_of group_by summarise ungroup n group_modify arrange slice pull mutate
 #' @export
 aggregate_group_performance <- function(results_list,
                                         group_keys,
@@ -48,6 +63,44 @@ aggregate_group_performance <- function(results_list,
   }
   if (length(results_list) != nrow(group_keys)) {
     stop("`results_list` and `group_keys` must have the same number of groups.")
+  }
+
+  # ---- Expand "all" / multi-value total_model into the concrete set of model names to run ----
+  if (identical(total_model, "all")) {
+    weighted_model_names_by_group <- lapply(results_list, function(r) {
+      r$ens$forecast_skill$model[grepl("weight", r$ens$forecast_skill$model)]
+    })
+    common_weighted_models <- Reduce(intersect, weighted_model_names_by_group)
+    if (length(common_weighted_models) == 0) {
+      stop("No ensemble-weighted model name is common to all groups; cannot expand total_model = 'all'.")
+    }
+    total_model <- c("best", sort(unique(common_weighted_models)))
+  }
+
+  if (length(total_model) > 1) {
+    by_model <- lapply(total_model, function(m) {
+      aggregate_group_performance(results_list, group_keys, group_vars,
+                                  aggregate_by = aggregate_by,
+                                  total_ages = total_ages,
+                                  total_model = m)
+    })
+    names(by_model) <- total_model
+
+    combined_series <- dplyr::bind_rows(lapply(total_model, function(m) {
+      by_model[[m]]$series %>% dplyr::mutate(total_model = m)
+    }))
+    combined_performance <- dplyr::bind_rows(lapply(total_model, function(m) {
+      by_model[[m]]$performance %>% dplyr::mutate(total_model = m)
+    }))
+
+    return(list(
+      by_model = by_model,
+      combined_series = combined_series,
+      combined_performance = combined_performance,
+      aggregated_over = aggregate_by,
+      total_ages = total_ages,
+      total_model = total_model
+    ))
   }
 
   extract_group_series <- function(result, total_model) {

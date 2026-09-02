@@ -28,7 +28,12 @@ lagged-covariate feature.}
 
 \item{group_vars}{Character vector of grouping columns to split on. Defaults to whichever
 of \code{c("population", "age")} are present in \code{dat}. If neither is present, \code{dat} is run
-as a single group (equivalent to calling \code{do_forecast()} directly).}
+as a single group (equivalent to calling \code{do_forecast()} directly). If \code{dat} has a
+\code{population} and/or \code{age} column with more than one distinct value that is \emph{not}
+included in \code{group_vars}, it is added automatically (with a warning) -- rows from
+distinct populations/ages are never silently combined into a single modeled series.
+Use \code{aggregate_by} to control which of these dimensions get summed together afterward
+for the retrospective performance evaluation.}
 
 \item{forecast_ages}{Optional vector of age values to actually forecast (others are
 dropped entirely before modeling). Defaults to all ages present in \code{dat}. Use this to,
@@ -69,7 +74,11 @@ skip aggregation. Defaults to all of \code{group_vars}.}
 \item{total_model}{Which per-group ensemble model to use when building the summed total
 series; passed through to \code{aggregate_group_performance()}. Defaults to \code{"best"}
 (auto-select the top-performing ensemble per group); alternatively supply a fixed
-ensemble name (e.g., \code{"MAPE_weighted"}) to use the same ensemble type for every group.}
+ensemble name (e.g., \code{"MAPE_weighted"}), a vector of several such names, or \code{"all"} to
+compute the aggregated total/performance for \code{"best"} plus every ensemble-weighting
+method common to all groups, so you can compare summed-total retrospective performance
+across weighting schemes (see \code{aggregate_group_performance()} for the resulting output
+shape when more than one \code{total_model} is used).}
 
 \item{parallel_groups}{Logical; whether to run the per-group \code{do_forecast()} calls in
 parallel (across groups) rather than sequentially. If \code{TRUE}, consider setting the

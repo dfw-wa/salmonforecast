@@ -32,20 +32,38 @@ this vector are dropped before summation (only relevant when \code{"age" \%in\% 
 Use this to exclude, e.g., the youngest age class from the summed total while still
 forecasting it (so it can be used as a lagged covariate for older ages).}
 
-\item{total_model}{Which per-group ensemble model's forecast series to sum. Either
-\code{"best"} (default) to auto-select, for each group, the ensemble-weighted model with the
-lowest retrospective MAPE, or a specific ensemble model name (e.g., \code{"MAPE_weighted"})
-to use the same ensemble type across all groups (recommended if you want the summed
-total to be based on a consistent method across groups).}
+\item{total_model}{Which per-group ensemble model's forecast series to sum. One of:
+\itemize{
+\item \code{"best"} (default) to auto-select, for each group, the ensemble-weighted model with
+the lowest retrospective MAPE.
+\item A specific ensemble model name (e.g., \code{"MAPE_weighted"}) to use the same ensemble
+type across all groups (recommended if you want the summed total to be based on a
+consistent method across groups).
+\item A character vector of several of the above (e.g., \code{c("best", "MAPE_weighted", "RMSE_weighted")}) to compute the aggregated total/performance for each one.
+\item \code{"all"} to compute the aggregated total for \code{"best"} plus every ensemble-weighted
+model name common to all groups (i.e., every weighting method available), so you can
+compare the summed-total retrospective performance across weighting schemes.
+}}
 }
 \value{
-A list with elements:
+If a single \code{total_model} is requested (the default, \code{"best"}), a list with
+elements:
 \itemize{
 \item \code{series}: the summed year-by-year predicted/observed abundance, retaining any
 grouping columns not summed over.
 \item \code{performance}: performance metrics (from \code{calculate_performance_metrics()}) computed
 on \code{series}, one row per remaining group combination (or a single row if fully summed).
 \item \code{aggregated_over}, \code{total_ages}, \code{total_model}: echoed inputs, for reference.
+}
+
+If multiple \code{total_model} values are requested (a vector, or \code{"all"}), a list with:
+\itemize{
+\item \code{by_model}: a named list (one element per requested \code{total_model}), each with the
+same \code{series}/\code{performance} structure described above.
+\item \code{combined_series}, \code{combined_performance}: the same, row-bound across all requested
+models with an added \code{total_model} column, for easy side-by-side comparison.
+\item \code{aggregated_over}, \code{total_ages}, \code{total_model}: echoed inputs (with \code{total_model}
+expanded to the actual set of model names used).
 }
 }
 \description{
