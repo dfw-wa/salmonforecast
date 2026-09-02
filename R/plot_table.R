@@ -20,6 +20,7 @@
 plot_table<-function(
     rp,
     ens,
+    dat,
     stack_metric,
     rolling_year_window,
     benchmark=NULL,
@@ -28,12 +29,12 @@ plot_table<-function(
   ){
 
   for_skill<-
-    rp$performance %>% mutate(model="Best_individual") %>% bind_rows(
-      ens$forecast_skill %>%filter(grepl("weight",model))
+    rp$performance %>% dplyr::mutate(model="Best_individual") %>% dplyr::bind_rows(
+      ens$forecast_skill %>%dplyr::filter(grepl("weight",model))
     )  %>%
     {if(!is.null(benchmark)){
-      bind_rows(.,benchmark$perf) %>%
-    arrange(MAPE)}else{
+      dplyr::bind_rows(.,benchmark$perf) %>%
+        dplyr::arrange(MAPE)}else{
       .
     }
     }
@@ -44,8 +45,8 @@ plot_table<-function(
 
   Table2<-for_skill%>% mutate(model=sub("_"," ",model),
                               )%>% rename(Model=model)%>%
-    kbl(caption = paste0("Table 2. One step ahead individual and ensemble model performance"),digits =2)%>%
-    kable_classic(full_width = F, html_font = "Cambria")
+    kableExtra::kbl(caption = paste0("Table 2. One step ahead individual and ensemble model performance"),digits =2)%>%
+    kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 
 
 
@@ -66,7 +67,9 @@ if(!grepl("weight",best_model)){
   best_model<-for_skill$model[2]
 }
 
-  results_best<-rp$top_mods %>% filter(rank==1) %>% mutate(model="Best_individual") %>% bind_rows(
+  results_best<-rp$top_mods %>% filter(rank==1) %>% mutate(model="Best_individual") %>%
+    dplyr::select(year:aicc,`Lo 50`:rank) |>
+    bind_rows(
     ens$ensembles %>% left_join(dat %>% dplyr::select(year,abundance)) %>% mutate(model_name=model)
   ) %>% filter(model==best_model) %>%
     dplyr::select(year,model_name,abundance,
@@ -93,13 +96,13 @@ if(!grepl("weight",best_model)){
     geom_line()+
     geom_point(aes(x=year,y=abundance))+
     ylim(0,NA)+
-    scale_x_continuous(breaks=unique(results_best$year))+ylab("Ocean abundance")+xlab("")
+    scale_x_continuous(breaks=unique(results_best$year))+ylab("Abundance")+xlab("")
 
 
 
   Figure2<-ggplot(
 
-    rp$top_mods %>% filter(rank==1) %>% mutate(model="Best_individual")%>% bind_rows(
+    rp$top_mods %>% filter(rank==1) %>% mutate(model="Best_individual") |>  dplyr::select(year:aicc,`Lo 50`:rank)%>% bind_rows(
     ens$ensembles%>% left_join(dat %>% dplyr::select(year,abundance)) %>% mutate(model_name=model)) %>%
       filter(model==best_model)
 

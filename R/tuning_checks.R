@@ -24,7 +24,7 @@ out<-tibble::tibble(
 for ( i in 1:(TY_ensemble-1)){
 
 
-  rp<-rolling_perf(results3,dat,i,num_models,TY_ensemble,model_list,alpha=alpha)
+  rp<-rolling_perf(One_ahead_out,dat,i,num_models,TY_ensemble,model_list,alpha=alpha)
   # rp$performance
 
 
@@ -76,6 +76,7 @@ list(out=out,
 #' @param TY_ensemble
 #' @param model_list
 #' @param roll_years length of sliding window for performance eval
+#' @param screen_metric
 #' @param alpha
 #' @param model_to_plot
 #'
@@ -85,7 +86,7 @@ list(out=out,
 #' @export
 #'
 #' @examples
-check_alpha<-function(One_ahead_out,dat,roll_years,num_models,TY_ensemble,model_list,alpha,model_to_plot="MAPE_weighted"){
+check_alpha<-function(One_ahead_out,dat,roll_years,screen_metric,num_models,TY_ensemble,model_list,model_to_plot="MAPE_weighted"){
 
 
   out<-tibble::tibble(
@@ -95,7 +96,7 @@ check_alpha<-function(One_ahead_out,dat,roll_years,num_models,TY_ensemble,model_
   for ( i in seq(0,.95,by=0.05)){
 
 
-    rp<-rolling_perf(results3,dat,roll_years,num_models,TY_ensemble,model_list,alpha=i)
+    rp<-rolling_perf(One_ahead_out,dat,roll_years,screen_metric,num_models,TY_ensemble,model_list,alpha=i)
     # rp$performance
 
 

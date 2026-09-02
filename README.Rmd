@@ -1,0 +1,259 @@
+---
+output: github_document
+always_allow_html: true
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# SalmonForecasting
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of SalmonForecasting is to make predictions of salmon returns for an upcoming year based on estimates of salmon returns in previous years and sets of predictors. The approach is to construct many ARIMA models with different subsets of predictors and generate ensembles. The ensembles are constructed by first evaluating the performance of each candidate model in a series of retrospective one-year-ahead predictions, then using the performance measures to select and weight predictions from candidate models. 
+
+## Installation
+
+You can install the development version of SalmonForecasting from [GitHub](https://github.com/wdfw-fp/salmonforecast) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("wdfw-fp/salmonforecast")
+```
+
+## Example
+
+Forecasts can be generated using the `do_forecast()` function, as shown below with a coho salmon dataset included in the package as an example. In this example, we include 11 different predictors, which include jack returns, smolt abundances, and ocean-environment indicators. This function can take some time depending on the total number of candidate models.
+
+```{r example, message=FALSE, warning=FALSE}
+library(SalmonForecasting)
+
+head(dat)
+
+forecast<-do_forecast(
+  dat,
+  covariates = c("lag1_log_JackOPI", "lag1_log_SmAdj", "lag1_NPGO", "lag1_PDO", "WSST_A",
+    "PDO.MJJ", "MEI.OND", "UWI.JAS", "SST.AMJ", "SSH.AMJ", "UWI.SON"),
+  TY_ensemble = 16,
+  slide = 15,
+  first_forecast_period = 1,
+  plot_results = FALSE,
+  write_model_summaries = TRUE,
+  forecast_period_start_m = 1,
+  forecast_period_start_d = 1,
+  do_stacking = FALSE,
+  stack_metric = "MAPE",
+  k = 1,
+  min_vars = 0,
+  max_vars = 1,
+  forecast_type = "preseason",
+  num_models = 10,
+  n_cores = 4,
+  ts_freq = 1,
+  seasonal = FALSE,
+  exp_smooth_alpha = 0
+)
+
+```
+
+
+```{r  message=FALSE, warning=FALSE}
+forecast$plots_and_tables$Table2
+```
+
+```{r  message=FALSE, warning=FALSE}
+forecast$plots_and_tables$Table3
+```
+
+```{r  message=FALSE, warning=FALSE}
+forecast$plots_and_tables$Table4
+```
+
+```{r  message=FALSE, warning=FALSE}
+forecast$plots_and_tables$Figure1
+```
+
+```{r  message=FALSE, warning=FALSE}
+forecast$plots_and_tables$Figure3
+```
+
+For another example, see the [2025 OPIH coho forecast](https://github.com/wdfw-fp/OPI-H-Forecast-Evaluation-2023/blob/2025_forecast/OPI_Coho_preseason_all%20years.Rmd)
+
+
+## Description of modeling process
+
+*Overview*
+
+This package implements a methodology of constructing ensemble forecasts (Dormann
+et al., 2018), where individual models in the ensemble have ARIMA
+components and covariates. It fit many different models with different
+combinations of covariates, then evaluate the performance of individual
+models, and finally develop ensembles of top-performing models. The
+approach is designed to identify models or ensembles with the highest
+out-of-sample one-step-ahead forecasting performance, and in doing so
+eliminate the tendency to overfit the in-sample data by considering many
+models. The steps in this procedure are as follows:
+
+1)  Fit ARIMA models with all unique combinations of covariates to
+    subsets of the data and make one-step-ahead forecasts,
+
+2)  Calculate one-step-ahead performance metrics for unique combinations
+    of covariates across forecast years,
+
+3)  Generate performance-weighted ensemble forecasts by taking the
+    weighted-mean of a top-performing subset of models
+
+4)  Evaluate how well forecasts would have performed:
+
+    a.  if each of the ensemble approaches had been used in the past 15
+        years
+
+    b.  if the best performing individual model (based on the prior 15
+        years of one-step-ahead performance) had been used.
+
+    c.  if the current model had been used in the past 15 years
+
+*Step 1.  Fitting models and forecasting*
+
+Models are evaluated with all unique combinations of $k$ covariates with a total of between *min* and *max* number of variables in each individual model for a total of $\sum_{k = min}^{\max}{\binom{C}{k}}$ unique covariate combinations.  We fit ARIMA models with each combination of covariates to subsets of the data beginning with the first year of  run size estimates (e.g., $t_{0} = 1970$) and running through subsequent years (e.g., 
+$`t \in \left\{ 2007,\ 2008,\ 2009\ldots\ 2022 \right\}`$). We use each
+ARIMA model to forecast the run size in year $t + 1$ such that we
+generated unique one-year-ahead forecasts (e.g., for years 2008--2023 in the example above).
+This allowed us to evaluate the performance of models with different
+combinations of covariates in forecasting returns in the most recent
+years (e.g., 2008-2022) and generate a forecast for the upcoming year (e.g., 2023) for which the post-season run size is unknown.
+
+The structure of the auto-regressive, differencing, and moving-average
+components of each model (covariate combination and data subset) were
+selected based on $AICc$ using the function *auto.arima* within the
+forecast R package (Hyndman et al., 2023; Hyndman et al., 2008). The
+generic ARIMA model we used with no differencing and lag-1
+autoregressive and moving average components can be written as:
+
+*Eq.
+1.*$`{\ \log(y}_{t})\  = \ µ_{t} + \phi_{1}\left( \log(y_{t - 1}) - µ_{t - 1} \right)\  + \ \theta_{1}\varepsilon_{t - 1} + d + \ \varepsilon_{t}`$
+
+where $y$ is the observed abundance in year $t$ ($y_{t})$, which
+after log transformation is equal to the sum of the log-mean abundance
+$µ_{t}$ in year $t$, an autoregressive error term where $\phi_{1}$is
+multiplied by the difference between the log of the observed abundance
+and log-mean abundance in year $t - 1$, a moving average error term
+where $\theta_{1}$ is multiplied by the residual from the previous year,
+a drift term $d$, which is a linear trend (on the log scale), and a
+residual $\varepsilon_{t}$ which is normally distributed around zero.
+The log-mean in year $t$ is estimated by multiple linear regression:
+
+*Eq. 2.* $µ_{t} = \mathbf{Xb}$
+
+where $\mathbf{X}$ is a design matrix of covariates with rows equal to
+the number of years, and columns equal to the number of covariates in a
+particular model, while ***b*** is a vector of coefficients
+corresponding to the covariates. The first column of ***X*** is equal to
+1 corresponding to the first coefficient in vector ***b***, which is the
+intercept. Bolding indicates matrix multiplication.
+
+The function *auto.arima* implements an algorithm that fits variations
+of Equation 1 to the data, all of which include the residual error and
+mean terms, but which either includes or does not include the
+autoregressive, moving average, and drift components. It also fits
+versions of the equation where the observations are subject to
+differencing using the backshift operator and evaluates whether
+additional autoregressive and moving average terms for different lags
+(other than lag 1 shown above) improve model fit. To assess model fit,
+*auto.arima* compares the $AICc$ value of each of the models it fits,
+selecting the model with the best combination of autoregressive, moving
+average, drift, and differencing for the particular set of data it is
+fit to. For purposes of simplicity, the differencing and multi-model
+evaluation within *auto.arima* is not shown in Equation 1 but full
+details of the *auto.arima* function are available in Hyndman et al.,
+2023 and Hyndman et al., 2008.
+
+*Step 2:  Performance evaluation for unique covariate combinations (i.e., individual models)*
+
+We assessed the forecast performance of models with each combination of
+covariates, $i$, based on their mean absolute prediction error (MAPE;
+Equation 3), root mean square error (RMSE; Equation 4), and mean
+symmetric accuracy (MSA; Equation 5), over the most recent 15 years for
+which abundance data were available:
+
+*Eq. 3.*
+$`MAPE_{i} = \frac{\sum_{t = 2008}^{2022}{|{(\widehat{y}}_{i,t}^{\ } - y_{t}^{\ })/y_{t}^{\ }|}}{15}*100`$*,*
+
+*Eq. 4.*
+$`RMSE_{i} = \sqrt{\frac{\sum_{t = 2008}^{2022}{{(\widehat{y}}_{i,t}^{\ } - y_{t}^{\ })}^{2}}{15}}`$
+,
+
+*Eq. 5.*
+$`{MSA}_{i} = \left\lbrack \exp\left( \frac{\sum_{t = 2008}^{2022}{|log(y_{t}^{\ }/{\widehat{y}}_{i,t}^{\ })}|}{15} \right) - 1 \right\rbrack`$\*100,
+
+where $y_{t}^{\ }$ is the postseason estimate of abundance in year $t$
+and ${\widehat{y}}_{i,t}^{\ }$ is a preseason forecast. For all
+performance error metrics, a lower value is indicative of a higher
+forecasting accuracy.
+
+*Step 3: Generating ensemble forecasts*
+
+We generated ensemble forecasts by taking weighted means (harmonic
+means) of the $M\, = \, 10\ $models with the lowest MAPE.
+
+*Eq. 6.*
+$`{\widehat{y}}_{t}^{\ } = \sum_{i}^{}{\omega_{i}{\widehat{y}}_{i,t}^{\ }}`$
+
+
+We calculate weights in four different ways to generate four different
+ensemble forecasts. Three of the ways were calculated by normalizing the
+inverse of a performance metric, $p_{i}$ , of each model:
+
+*Eq. 7.*
+$w_{i} = \frac{\left( p_{i} \right)^{- 1}}{\sum_{i = 1}^{M}\left( p_{i} \right)^{- 1}}$
+
+where the performance metrics were MAPE, RMSE, and MSA. The final method
+of generating weights was to use a Markov-Chain Monte-Carlo optimization
+algorithm that minimized the MAPE of the ensemble forecasts across the training years (e.g., 2008--2022), termed stacking weights (Smyth and Wolpert 1999).
+
+*Step 4: Evaluating forecast performance*
+
+We evaluated the performance of four different approaches to generating ensemble forecasts, and an approach of choosing a single best individual
+covariate combination (as measured by MAPE in the previous 15 years) to
+use for forecasting returns in each individual year. For the ensemble
+approaches and selecting the best individual ARIMA model with
+covariates, we repeated the 4-step processes described above to forecast
+returns in teh training years (e.g., 2008--2022), where the models used to forecast returns in a given year had no access to the observed returns in that year. Thus, when generating ensemble weights or selecting the best individual model to forecast 2008 abundance we considered the performance of individual models in 1993--2007, when generating a forecast for 2009 we considered the performance of individual models in 1994--2008, and so on. Finally, we calculated the performance metrics shown above for each approach over the full training (e.g., 2008--2022) period.
+
+**References**
+
+Dormann, C.F., Calabrese, J.M., Guillera‐Arroita, G., Matechou, E.,
+Bahn, V., Bartoń, K., Beale, C.M., Ciuti, S., Elith, J., Gerstner, and
+K., Guelat, J., 2018. Model averaging in ecology: A review of Bayesian,
+information‐theoretic, and tactical approaches for predictive
+inference. Ecological Monographs, 88(4), pp.485-504.
+
+Hyndman, R., Athanasopoulos, G., Bergmeir, C., Caceres, G., Chhay L,
+O\'Hara-Wild, M., Petropoulos, F., Razbash, S., Wang, E., and Yasmeen,
+F., 2023. forecast: Forecasting functions for time series and linear
+models. R package version 8.21.1, https://pkg.robjhyndman.com/forecast/.
+
+Hyndman, R.J., and Khandakar, Y., 2008. Automatic time series
+forecasting: the forecast package for R. Journal of Statistical
+Software, 26(3), 1--22. doi:10.18637/jss.v027.i03.
+
+Smyth, P., and Wolpert, D., 1999. Linearly combining density estimators via stacking. Machine Learning, 36, pp.59-83.
+
+
+Copyright (c) 2023 Mark Sorel [aut, cre], Thomas Buehrens [aut], Xiaotian Yuan [aut]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+

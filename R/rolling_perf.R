@@ -7,7 +7,8 @@
 #' @param one_aheads A data frame with one-step ahead model predictions.
 #' @param series A data frame with time series data that includes 'year' and 'abundance' columns.
 #' @param roll_years The number of years for rolling calculation (default is 15).
-#' @param mod_include The number of top-performing models to include (default is 5).
+#' @param screen_metric the metric used to rank and screen top models. options are MAPE or aicc
+#' @param mod_include The number of top-performing models to include (default is 25).
 #' @param TY_ensemble The number of years for the ensemble analysis (default: 16).
 #' @param model_list A data frame with information about each model, including the 'model' column.
 #' @param alpha the annual rate of decay per year used in weighting performance in metric  calculation for model selection
@@ -23,9 +24,9 @@
 #' @import tibble
 #' @import readr
 #' @import stats
-
+#'
 #' @export
-rolling_perf <- function(one_aheads, series, roll_years, mod_include, TY_ensemble, model_list,alpha=0) {
+rolling_perf <- function(one_aheads, series, roll_years, screen_metric, mod_include, TY_ensemble, model_list,alpha=0) {
 
   out <- one_aheads %>%
     left_join(series %>% dplyr::select(year, abundance)) %>%
@@ -43,7 +44,7 @@ rolling_perf <- function(one_aheads, series, roll_years, mod_include, TY_ensembl
     ) %>%
     group_by(year) %>%
     mutate(
-      rank = rank(MAPE),
+      rank = rank({{screen_metric}}),
       model = as.character(model)
     ) %>% dplyr::ungroup()
 

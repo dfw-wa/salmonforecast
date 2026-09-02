@@ -36,8 +36,8 @@ calculate_performance_metrics <- function(predicted, observed, weighted = FALSE)
   APE <- abs(error / observed)
 
   # Calculate MASE
-  naive_forecast <- c(predicted[1], predicted[1:length(predicted)-1])
-  MASE <- mean(abs(observed - naive_forecast))
+  naive_error <- observed-lag(observed,1)
+  MASE <- mean(abs(error))/mean(abs(naive_error),na.rm=TRUE)
 
   performance_metrics <- data.frame(
     MAPE = mean(APE, na.rm = TRUE) * 100,

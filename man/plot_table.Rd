@@ -8,6 +8,7 @@ This function creates tables and plots to summarize the forecasting results.}
 plot_table(
   rp,
   ens,
+  dat,
   stack_metric,
   rolling_year_window,
   benchmark = NULL,
@@ -19,9 +20,9 @@ plot_table(
 
 \item{ens}{Ensemble model data.}
 
-\item{benchmark}{info on a  model to be compared to}
-
 \item{dat}{the input data with columns "year" and "abundance"}
+
+\item{benchmark}{info on a  model to be compared to}
 }
 \value{
 A list containing tables and plots summarizing the forecasting results.

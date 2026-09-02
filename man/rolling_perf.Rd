@@ -8,6 +8,7 @@ rolling_perf(
   one_aheads,
   series,
   roll_years,
+  screen_metric,
   mod_include,
   TY_ensemble,
   model_list,
@@ -21,7 +22,9 @@ rolling_perf(
 
 \item{roll_years}{The number of years for rolling calculation (default is 15).}
 
-\item{mod_include}{The number of top-performing models to include (default is 5).}
+\item{screen_metric}{the metric used to rank and screen top models. options are MAPE or aicc}
+
+\item{mod_include}{The number of top-performing models to include (default is 25).}
 
 \item{TY_ensemble}{The number of years for the ensemble analysis (default: 16).}
 

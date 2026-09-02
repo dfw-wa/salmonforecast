@@ -1,15 +1,16 @@
 Package: SalmonForecasting
 Title: Forecast salmon returns
-Version: 0.0.0.9000
+Version: 0.1.0
 Author: Mark Sorel [aut, cre] <mark.sorel@dfw.wa.gov>, Thomas Buehrens [aut] <Thomas.Buehrens@dfw.wa.gov>, Xiaotian Yuan [aut] <tjyuanxiaotian@gmail.com>
-Maintainer: Xiaotian Yuan <tjyuanxiaotian@gmail.com>
+Maintainer: Mark Sorel <mark.sorel@dfw.wa.gov>
 Description: Provides a set of data analysis and forecasting tools for analyzing environmental and ecological data. The package includes functions for data manipulation, time series forecasting, and statistical analysis, making it a valuable resource for researchers in these fields.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Suggests:
-  testthat (>= 3.0.0)
+    rmarkdown,
+    testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Depends:
   R (>= 2.10)
@@ -36,4 +37,7 @@ Imports:
     ggplot2,
     rvest,
     rlang
+    doRNG,
+    equatiomatic
 LazyData: true
+VignetteBuilder: knitr

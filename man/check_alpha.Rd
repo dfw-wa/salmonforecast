@@ -8,10 +8,10 @@ check_alpha(
   One_ahead_out,
   dat,
   roll_years,
+  screen_metric,
   num_models,
   TY_ensemble,
   model_list,
-  alpha,
   model_to_plot = "MAPE_weighted"
 )
 }
@@ -20,11 +20,11 @@ check_alpha(
 
 \item{roll_years}{length of sliding window for performance eval}
 
+\item{screen_metric}{the metric used to rank and screen top models. options are MAPE or aicc}
+
 \item{num_models}{Number of top models to consider in ensemble creation.}
 
 \item{TY_ensemble}{number of years ti evaluate performance based on plus 1.}
-
-\item{alpha}{the annual rate of decay per year used in weighting performance in metric  calculation for model selection and ensemble-weights}
 
 \item{model_to_plot}{}
 }

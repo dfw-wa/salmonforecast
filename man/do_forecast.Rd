@@ -15,17 +15,22 @@ do_forecast(
   write_model_summaries = TRUE,
   forecast_period_start_m = 1,
   forecast_period_start_d = 1,
-  do_stacking = TRUE,
+  do_stacking = FALSE,
   stack_metric = "MAPE",
   k = 1,
   min_vars = 0,
   max_vars = 1,
   forecast_type = "preseason",
-  num_models = 10,
+  screen_metric = aicc,
+  num_models = 25,
   n_cores = 2,
   ts_freq = 1,
   seasonal = FALSE,
-  exp_smooth_alpha = 0
+  exp_smooth_alpha = 0,
+  include_mod = FALSE,
+  num_stack_it = 500,
+  supplied_forecasts = NULL,
+  update_last_year = FALSE
 )
 }
 \arguments{
@@ -57,6 +62,8 @@ do_forecast(
 
 \item{forecast_type}{Type of forecasting approach ("preseason" or other).}
 
+\item{screen_metric}{the metric used to rank and screen top models. options are MAPE or aicc}
+
 \item{num_models}{Number of top models to consider in ensemble creation.}
 
 \item{n_cores}{number of cores to use in parallel computing}
@@ -64,6 +71,12 @@ do_forecast(
 \item{ts_freq}{frequency for time series (generally 1)}
 
 \item{seasonal}{whether the arima models should include seasonal  components}
+
+\item{num_stack_it}{max number of iterations to run stacking algorithm}
+
+\item{supplied_forecasts}{a dataframe of forecasts to be used \emph{instead} of fitting specified models}
+
+\item{update_last_year}{refit only the models with the full dataset used to predict the upcoming year.}
 
 \item{alpha}{the annual rate of decay per year used in weighting performance in metric  calculation for model selection and ensemble-weights}
 }

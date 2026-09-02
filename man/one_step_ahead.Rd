@@ -16,8 +16,8 @@ one_step_ahead(
   write_model_summaries,
   forecast_period_start_m,
   forecast_period_start_d,
-  stack_metric,
-  k
+  n_cores,
+  include_mod = FALSE
 )
 }
 \arguments{
@@ -42,12 +42,6 @@ one_step_ahead(
 \item{forecast_period_start_m}{The starting month for the forecast period (inclusive).}
 
 \item{forecast_period_start_d}{The starting day for the forecast period (inclusive).}
-
-\item{stack_metric}{A metric used for stacking models.}
-
-\item{k}{A parameter for the model evaluation.}
-
-\item{alpha}{the annual rate of decay per year used in weighting performance in metric  calculation for weight calculation for ensemble}
 }
 \value{
 A data frame containing forecasts and other information.

@@ -15,7 +15,8 @@ ensemble(
   stack_metric,
   stretch = FALSE,
   do_stacking = TRUE,
-  alpha = 0
+  alpha = 0,
+  num_stack_it = 500
 )
 }
 \arguments{
