@@ -7,7 +7,7 @@ Description: Provides a set of data analysis and forecasting tools for analyzing
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.3
 Suggests:
   testthat (>= 3.0.0)
 Config/testthat/edition: 3
@@ -34,5 +34,6 @@ Imports:
     knitr,
     kableExtra,
     ggplot2,
-    rvest
+    rvest,
+    rlang
 LazyData: true
