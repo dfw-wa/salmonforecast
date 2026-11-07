@@ -62,7 +62,7 @@ arima_forecast <- function(tdat, xreg, xreg_pred, last_train_yr, first_forecast_
         )
         CI <- forecast::forecast(m1, lambda = 0, h = 1, level = c(50, 95), xreg = NULL) %>%
           tidyr::as_tibble() %>%
-          dplyr::select() %>%
+          dplyr::select(!`Point Forecast`) %>%
           dplyr::mutate(year = last_train_yr + 1, period = 1)
       }
 
